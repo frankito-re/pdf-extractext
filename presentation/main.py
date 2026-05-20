@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
+from application.pdf_extractor import extract_text_from_bytes
 
 app = FastAPI(
     title="PDF Extractext API",
@@ -10,3 +11,9 @@ app = FastAPI(
 async def health_check():
     """Returns a simple health status to verify the server is running."""
     return {"status": "ok", "message": "pong"}
+
+@app.post("/extract")
+async def extract_text(file: UploadFile = File(...)):
+    pdf_bytes = await file.read()
+    text = extract_text_from_bytes(pdf_bytes)
+    return {"text": text}
