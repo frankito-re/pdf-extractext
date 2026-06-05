@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import RedirectResponse
 
 from application.checksum import calculate_checksum, save_document_if_unique
 from application.exceptions import DuplicateDocumentError
@@ -27,7 +28,10 @@ app = FastAPI(
 def get_repository() -> MongoChecksumRepository:
     return MongoChecksumRepository()
 
-
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/docs")
+    
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "message": "pong"}
