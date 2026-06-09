@@ -1,4 +1,5 @@
 from typing import Optional
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -6,11 +7,13 @@ from httpx import ASGITransport, AsyncClient
 from application.document_service import DocumentDTO
 from presentation.main import app, get_document_repo
 
-
 @pytest.mark.asyncio
 async def test_ping_server():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/health")
+    with patch("presentation.main.get_database_connection", new_callable=AsyncMock):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "message": "pong"}

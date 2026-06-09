@@ -1,6 +1,6 @@
 import pytest
 
-from application.checksum import calculate_checksum, ensure_unique_checksum
+from application.checksum import calculate_checksum, ensure_unique_checksum, save_document_if_unique
 from application.exceptions import DuplicateDocumentError
 
 STATIC_CONTENT = b"pdf-extractext static test content"
@@ -31,3 +31,19 @@ async def test_ensure_unique_checksum_passes_when_unique():
             return False
 
     await ensure_unique_checksum("abc123", NeverExistsRepo())
+
+
+@pytest.mark.asyncio
+async def test_document_is_inserted_after_successful_uniqueness_check():
+    saved = []
+
+    class TrackingRepo:
+        async def exists(self, checksum: str) -> bool:
+            return False
+
+        async def save(self, text: str, checksum: str) -> None:
+            saved.append((text, checksum))
+
+    await save_document_if_unique("extracted text", "abc123", TrackingRepo())
+
+    assert saved == [("extracted text", "abc123")]
