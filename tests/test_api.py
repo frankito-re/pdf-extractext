@@ -81,3 +81,49 @@ async def test_list_all_documents_returns_200():
     ]
 
     app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_update_document_returns_200():
+    class MockRepo:
+        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
+            return DocumentDTO(id=id, text="original", checksum="old_hash")
+
+        async def get_all(self) -> list[DocumentDTO]:
+            return []
+
+        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
+            return DocumentDTO(id=id, text=text or "original", checksum=checksum or "old_hash")
+
+    app.dependency_overrides[get_document_repo] = lambda: MockRepo()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.patch("/documents/abc123", json={"text": "updated text"})
+
+    assert response.status_code == 200
+    assert response.json() == {"id": "abc123", "text": "updated text", "checksum": "old_hash"}
+
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_update_document_returns_404_when_not_found():
+    class MockRepo:
+        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
+            return None
+
+        async def get_all(self) -> list[DocumentDTO]:
+            return []
+
+        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
+            return None
+
+    app.dependency_overrides[get_document_repo] = lambda: MockRepo()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.patch("/documents/nonexistent", json={"text": "updated text"})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Document not found"}
+
+    app.dependency_overrides.clear()
