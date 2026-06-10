@@ -12,6 +12,7 @@ from application.exceptions import DuplicateDocumentError
 from application.pdf_extractor import extract_text_from_bytes
 from data.connection import get_database_connection
 from data.models import ExtractedDocument
+from data.repositories import MongoChecksumRepository
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,8 +51,13 @@ async def extract_text(
     repository: MongoChecksumRepository = Depends(get_repository),
 ):
     pdf_bytes = await file.read()
-    text = extract_text_from_bytes(pdf_bytes)
-    return {"text": text}
+    checksum = calculate_checksum(pdf_bytes)
+    try:
+        text = extract_text_from_bytes(pdf_bytes)
+        await save_document_if_unique(text, checksum, repository)
+    except DuplicateDocumentError:
+        raise HTTPException(status_code=409, detail=f"Duplicate document: {checksum}")
+    return {"text": text, "checksum": checksum}
 
 
 @app.get("/documents")
@@ -66,10 +72,3 @@ async def read_document(id: str, repo: Annotated[DocumentRepository, Depends(get
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"id": doc.id, "text": doc.text, "checksum": doc.checksum}
-    checksum = calculate_checksum(pdf_bytes)
-    try:
-        text = extract_text_from_bytes(pdf_bytes)
-        await save_document_if_unique(text, checksum, repository)
-    except DuplicateDocumentError:
-        raise HTTPException(status_code=409, detail=f"Duplicate document: {checksum}")
-    return {"text": text, "checksum": checksum}
