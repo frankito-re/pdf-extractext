@@ -12,6 +12,7 @@ class DocumentDTO:
 class DocumentRepository(Protocol):
     async def get_by_id(self, id: str) -> Optional[DocumentDTO]: ...
     async def get_all(self) -> list[DocumentDTO]: ...
+    async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]: ...
 
 
 async def get_document(id: str, repository: DocumentRepository) -> Optional[DocumentDTO]:
@@ -20,3 +21,12 @@ async def get_document(id: str, repository: DocumentRepository) -> Optional[Docu
 
 async def get_all_documents(repository: DocumentRepository) -> list[DocumentDTO]:
     return await repository.get_all()
+
+
+async def update_document(
+    id: str,
+    text: Optional[str],
+    checksum: Optional[str],
+    repository: DocumentRepository,
+) -> Optional[DocumentDTO]:
+    return await repository.update(id, text, checksum)
