@@ -13,6 +13,7 @@ class DocumentRepository(Protocol):
     async def get_by_id(self, id: str) -> Optional[DocumentDTO]: ...
     async def get_all(self) -> list[DocumentDTO]: ...
     async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]: ...
+    async def delete(self, id: str) -> bool: ...
 
 
 async def get_document(id: str, repository: DocumentRepository) -> Optional[DocumentDTO]:
@@ -30,3 +31,7 @@ async def update_document(
     repository: DocumentRepository,
 ) -> Optional[DocumentDTO]:
     return await repository.update(id, text, checksum)
+
+
+async def delete_document(id: str, repository: DocumentRepository) -> bool:
+    return await repository.delete(id)

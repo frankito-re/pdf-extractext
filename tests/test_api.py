@@ -127,3 +127,90 @@ async def test_update_document_returns_404_when_not_found():
     assert response.json() == {"detail": "Document not found"}
 
     app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_delete_document_returns_204():
+    class MockRepo:
+        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
+            return None
+
+        async def get_all(self) -> list[DocumentDTO]:
+            return []
+
+        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
+            return None
+
+        async def delete(self, id: str) -> bool:
+            return True
+
+    app.dependency_overrides[get_document_repo] = lambda: MockRepo()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.delete("/documents/existing-id")
+
+    assert response.status_code == 204
+    assert response.text == ""
+
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_delete_document_returns_404_when_not_found():
+    class MockRepo:
+        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
+            return None
+
+        async def get_all(self) -> list[DocumentDTO]:
+            return []
+
+        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
+            return None
+
+        async def delete(self, id: str) -> bool:
+            return False
+
+    app.dependency_overrides[get_document_repo] = lambda: MockRepo()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.delete("/documents/nonexistent")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Document not found"}
+
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_get_deleted_document_returns_404():
+    class MockRepo:
+        def __init__(self):
+            self.deleted = False
+
+        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
+            if self.deleted:
+                return None
+            return DocumentDTO(id=id, text="to be deleted", checksum="abc")
+
+        async def get_all(self) -> list[DocumentDTO]:
+            return []
+
+        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
+            return None
+
+        async def delete(self, id: str) -> bool:
+            self.deleted = True
+            return True
+
+    shared_repo = MockRepo()
+    app.dependency_overrides[get_document_repo] = lambda: shared_repo
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        delete_response = await ac.delete("/documents/some-id")
+        get_response = await ac.get("/documents/some-id")
+
+    assert delete_response.status_code == 204
+    assert get_response.status_code == 404
+    assert get_response.json() == {"detail": "Document not found"}
+
+    app.dependency_overrides.clear()

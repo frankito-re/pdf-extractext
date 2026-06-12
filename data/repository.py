@@ -25,3 +25,10 @@ class BeanieDocumentRepository:
             doc.checksum = checksum
         await doc.save()
         return DocumentDTO(id=str(doc.id), text=doc.text, checksum=doc.checksum)
+
+    async def delete(self, id: str) -> bool:
+        doc = await ExtractedDocument.get(id)
+        if doc is None:
+            return False
+        await doc.delete()
+        return True
