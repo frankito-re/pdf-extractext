@@ -5,7 +5,7 @@ from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, model_validator
 
-from application.document_service import DocumentRepository, get_document, get_all_documents, update_document
+from application.document_service import DocumentRepository, get_document, get_all_documents, update_document, delete_document
 from application.checksum import calculate_checksum, save_document_if_unique
 from application.exceptions import DuplicateDocumentError
 
@@ -96,3 +96,14 @@ async def update_document_endpoint(
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"id": doc.id, "text": doc.text, "checksum": doc.checksum}
+
+
+@app.delete("/documents/{id}", status_code=204)
+async def delete_document_endpoint(
+    id: str,
+    repo: Annotated[DocumentRepository, Depends(get_document_repo)],
+):
+    deleted = await delete_document(id, repo)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return None
