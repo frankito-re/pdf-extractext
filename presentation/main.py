@@ -5,7 +5,7 @@ from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, model_validator
 
-from application.document_service import DocumentRepository, get_document, get_all_documents, update_document, delete_document
+from application.document_service import DocumentDTO, DocumentRepository, get_document, get_all_documents, update_document, delete_document
 from application.checksum import calculate_checksum, save_document_if_unique
 from application.exceptions import DuplicateDocumentError
 
@@ -45,8 +45,13 @@ async def get_document_repo() -> DocumentRepository:
     return BeanieDocumentRepository()
 
 
-def get_repository() -> MongoChecksumRepository:
+def get_checksum_repo() -> MongoChecksumRepository:
     return MongoChecksumRepository()
+
+
+def _doc_to_response(doc: DocumentDTO) -> dict:
+    return {"id": doc.id, "text": doc.text, "checksum": doc.checksum}
+
 
 @app.get("/")
 async def root():
@@ -60,7 +65,7 @@ async def health_check():
 @app.post("/extract")
 async def extract_text(
     file: UploadFile = File(...),
-    repository: MongoChecksumRepository = Depends(get_repository),
+    repository: MongoChecksumRepository = Depends(get_checksum_repo),
 ):
     pdf_bytes = await file.read()
     checksum = calculate_checksum(pdf_bytes)
@@ -75,7 +80,7 @@ async def extract_text(
 @app.get("/documents")
 async def list_documents(repo: Annotated[DocumentRepository, Depends(get_document_repo)]):
     docs = await get_all_documents(repo)
-    return [{"id": d.id, "text": d.text, "checksum": d.checksum} for d in docs]
+    return [_doc_to_response(d) for d in docs]
 
 
 @app.get("/documents/{id}")
@@ -83,7 +88,7 @@ async def read_document(id: str, repo: Annotated[DocumentRepository, Depends(get
     doc = await get_document(id, repo)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    return {"id": doc.id, "text": doc.text, "checksum": doc.checksum}
+    return _doc_to_response(doc)
 
 
 @app.patch("/documents/{id}")
@@ -95,7 +100,7 @@ async def update_document_endpoint(
     doc = await update_document(id, body.text, body.checksum, repo)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    return {"id": doc.id, "text": doc.text, "checksum": doc.checksum}
+    return _doc_to_response(doc)
 
 
 @app.delete("/documents/{id}", status_code=204)
