@@ -7,6 +7,21 @@ from httpx import ASGITransport, AsyncClient
 from application.document_service import DocumentDTO
 from presentation.main import app, get_document_repo
 
+
+class BaseMockRepo:
+    async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
+        return None
+
+    async def get_all(self) -> list[DocumentDTO]:
+        return []
+
+    async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
+        return None
+
+    async def delete(self, id: str) -> bool:
+        return False
+
+
 @pytest.mark.asyncio
 async def test_ping_server():
     with patch("presentation.main.get_database_connection", new_callable=AsyncMock):
@@ -19,12 +34,9 @@ async def test_ping_server():
 
 @pytest.mark.asyncio
 async def test_read_document_by_id_returns_200():
-    class MockRepo:
+    class MockRepo(BaseMockRepo):
         async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
             return DocumentDTO(id=id, text="extracted text", checksum="abc123")
-
-        async def get_all(self) -> list[DocumentDTO]:
-            return []
 
     app.dependency_overrides[get_document_repo] = lambda: MockRepo()
 
@@ -39,14 +51,7 @@ async def test_read_document_by_id_returns_200():
 
 @pytest.mark.asyncio
 async def test_read_document_by_id_returns_404_when_not_found():
-    class MockRepo:
-        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
-            return None
-
-        async def get_all(self) -> list[DocumentDTO]:
-            return []
-
-    app.dependency_overrides[get_document_repo] = lambda: MockRepo()
+    app.dependency_overrides[get_document_repo] = lambda: BaseMockRepo()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/documents/nonexistent")
@@ -59,10 +64,7 @@ async def test_read_document_by_id_returns_404_when_not_found():
 
 @pytest.mark.asyncio
 async def test_list_all_documents_returns_200():
-    class MockRepo:
-        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
-            return None
-
+    class MockRepo(BaseMockRepo):
         async def get_all(self) -> list[DocumentDTO]:
             return [
                 DocumentDTO(id="1", text="first", checksum="aaa"),
@@ -85,13 +87,7 @@ async def test_list_all_documents_returns_200():
 
 @pytest.mark.asyncio
 async def test_update_document_returns_200():
-    class MockRepo:
-        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
-            return DocumentDTO(id=id, text="original", checksum="old_hash")
-
-        async def get_all(self) -> list[DocumentDTO]:
-            return []
-
+    class MockRepo(BaseMockRepo):
         async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
             return DocumentDTO(id=id, text=text or "original", checksum=checksum or "old_hash")
 
@@ -108,17 +104,7 @@ async def test_update_document_returns_200():
 
 @pytest.mark.asyncio
 async def test_update_document_returns_404_when_not_found():
-    class MockRepo:
-        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
-            return None
-
-        async def get_all(self) -> list[DocumentDTO]:
-            return []
-
-        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
-            return None
-
-    app.dependency_overrides[get_document_repo] = lambda: MockRepo()
+    app.dependency_overrides[get_document_repo] = lambda: BaseMockRepo()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.patch("/documents/nonexistent", json={"text": "updated text"})
@@ -131,16 +117,7 @@ async def test_update_document_returns_404_when_not_found():
 
 @pytest.mark.asyncio
 async def test_delete_document_returns_204():
-    class MockRepo:
-        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
-            return None
-
-        async def get_all(self) -> list[DocumentDTO]:
-            return []
-
-        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
-            return None
-
+    class MockRepo(BaseMockRepo):
         async def delete(self, id: str) -> bool:
             return True
 
@@ -157,20 +134,7 @@ async def test_delete_document_returns_204():
 
 @pytest.mark.asyncio
 async def test_delete_document_returns_404_when_not_found():
-    class MockRepo:
-        async def get_by_id(self, id: str) -> Optional[DocumentDTO]:
-            return None
-
-        async def get_all(self) -> list[DocumentDTO]:
-            return []
-
-        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
-            return None
-
-        async def delete(self, id: str) -> bool:
-            return False
-
-    app.dependency_overrides[get_document_repo] = lambda: MockRepo()
+    app.dependency_overrides[get_document_repo] = lambda: BaseMockRepo()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.delete("/documents/nonexistent")
@@ -183,7 +147,7 @@ async def test_delete_document_returns_404_when_not_found():
 
 @pytest.mark.asyncio
 async def test_get_deleted_document_returns_404():
-    class MockRepo:
+    class MockRepo(BaseMockRepo):
         def __init__(self):
             self.deleted = False
 
@@ -191,12 +155,6 @@ async def test_get_deleted_document_returns_404():
             if self.deleted:
                 return None
             return DocumentDTO(id=id, text="to be deleted", checksum="abc")
-
-        async def get_all(self) -> list[DocumentDTO]:
-            return []
-
-        async def update(self, id: str, text: Optional[str], checksum: Optional[str]) -> Optional[DocumentDTO]:
-            return None
 
         async def delete(self, id: str) -> bool:
             self.deleted = True
