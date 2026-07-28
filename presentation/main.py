@@ -55,10 +55,12 @@ def _doc_to_response(doc: DocumentDTO) -> dict:
 
 @app.get("/")
 async def root():
+    """Redirect to the Swagger UI at /docs."""
     return RedirectResponse(url="/docs")
 
 @app.get("/health")
 async def health_check():
+    """Report that the API is up and reachable."""
     return {"status": "ok", "message": "pong"}
 
 
@@ -67,6 +69,10 @@ async def extract_text(
     file: UploadFile = File(...),
     repository: MongoChecksumRepository = Depends(get_checksum_repo),
 ):
+    """Extract text from an uploaded PDF and persist it if its checksum is not already stored.
+
+    Returns 409 if a document with the same SHA-256 checksum already exists.
+    """
     pdf_bytes = await file.read()
     checksum = calculate_checksum(pdf_bytes)
     try:
@@ -79,12 +85,14 @@ async def extract_text(
 
 @app.get("/documents")
 async def list_documents(repo: Annotated[DocumentRepository, Depends(get_document_repo)]):
+    """List all persisted documents."""
     docs = await get_all_documents(repo)
     return [_doc_to_response(d) for d in docs]
 
 
 @app.get("/documents/{id}")
 async def read_document(id: str, repo: Annotated[DocumentRepository, Depends(get_document_repo)]):
+    """Retrieve a single document by id. Returns 404 if it doesn't exist."""
     doc = await get_document(id, repo)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -97,6 +105,7 @@ async def update_document_endpoint(
     body: UpdateDocumentRequest,
     repo: Annotated[DocumentRepository, Depends(get_document_repo)],
 ):
+    """Update a document's text and/or checksum. Returns 404 if it doesn't exist."""
     doc = await update_document(id, body.text, body.checksum, repo)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -108,6 +117,7 @@ async def delete_document_endpoint(
     id: str,
     repo: Annotated[DocumentRepository, Depends(get_document_repo)],
 ):
+    """Delete a document by id. Returns 404 if it doesn't exist."""
     deleted = await delete_document(id, repo)
     if not deleted:
         raise HTTPException(status_code=404, detail="Document not found")
