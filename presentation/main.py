@@ -28,6 +28,8 @@ class UpdateDocumentRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Debe completarse antes de que la app empiece a servir: los modelos de Beanie
+    # no se pueden usar en queries hasta que init_beanie() corra contra una conexión activa.
     await get_database_connection([ExtractedDocument])
     yield
 
@@ -74,6 +76,8 @@ async def extract_text(
     Returns 409 if a document with the same SHA-256 checksum already exists.
     """
     pdf_bytes = await file.read()
+    # El checksum se calcula sobre el upload crudo, antes de extraer: la deduplicación
+    # debe basarse en el archivo original, ya que la extracción no está garantizada idempotente.
     checksum = calculate_checksum(pdf_bytes)
     try:
         text = extract_text_from_bytes(pdf_bytes)

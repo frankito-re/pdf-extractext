@@ -9,6 +9,9 @@ class DocumentDTO:
     checksum: str
 
 
+# Estas funciones solo delegan al repositorio: existen para que presentation
+# dependa de este Protocol y no de una clase concreta Beanie/Mongo, manteniendo
+# la capa de API testeable sin una base de datos real (Dependency Inversion).
 class DocumentRepository(Protocol):
     async def get_by_id(self, id: str) -> Optional[DocumentDTO]: ...
     async def get_all(self) -> list[DocumentDTO]: ...
