@@ -3,6 +3,8 @@ from .config import DatabaseSettings
 
 
 async def get_database_connection(document_models: list):
+    # Los settings se leen acá, no al importar el módulo, para respetar las
+    # variables DB_URL/DB_NAME seteadas justo antes del startup (tests, contenedores).
     settings = DatabaseSettings()
 
     await init_beanie(
