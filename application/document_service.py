@@ -9,9 +9,10 @@ class DocumentDTO:
     checksum: str
 
 
-# Estas funciones solo delegan al repositorio: existen para que presentation
-# dependa de este Protocol y no de una clase concreta Beanie/Mongo, manteniendo
-# la capa de API testeable sin una base de datos real (Dependency Inversion).
+# Protocol acotado a las 4 operaciones CRUD que necesita esta capa, sin métodos
+# de más (SOLID: ISP). presentation depende de esta abstracción y no de una clase
+# concreta Beanie/Mongo, lo que mantiene la API testeable sin una base de datos
+# real (SOLID: DIP).
 class DocumentRepository(Protocol):
     async def get_by_id(self, id: str) -> Optional[DocumentDTO]: ...
     async def get_all(self) -> list[DocumentDTO]: ...
@@ -19,6 +20,9 @@ class DocumentRepository(Protocol):
     async def delete(self, id: str) -> bool: ...
 
 
+# Cualquier implementación del Protocol (Beanie o un fake de test) es intercambiable
+# acá sin romper estas funciones (SOLID: LSP), y una implementación nueva se suma sin
+# modificar este código (SOLID: OCP).
 async def get_document(id: str, repository: DocumentRepository) -> Optional[DocumentDTO]:
     return await repository.get_by_id(id)
 
