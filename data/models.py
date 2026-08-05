@@ -4,6 +4,8 @@ from beanie import Document
 class ExtractedDocument(Document):
     # Sin campo para los bytes originales del PDF: las reglas de negocio prohíben
     # almacenar el binario, solo se persisten el texto extraído y su checksum.
+    # Solo estos 2 campos, sin metadata especulativa (nombre de archivo, fecha,
+    # tamaño) que nadie pidió todavía (YAGNI).
     text: str
     checksum: str
 
