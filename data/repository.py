@@ -6,8 +6,12 @@ from data.models import ExtractedDocument
 
 # Se mantiene separado de MongoChecksumRepository (data/repositories.py): este
 # implementa el protocolo completo DocumentRepository para el CRUD, mientras que
-# la unicidad de checksum al escribir la maneja el repositorio más acotado de arriba.
+# la unicidad de checksum al escribir la maneja el repositorio más acotado de arriba
+# (SOLID: SRP / ISP). Cumple el Protocol de document_service.py, cerrando la
+# dependencia hacia la abstracción en vez de una implementación concreta (SOLID: DIP).
 class BeanieDocumentRepository:
+    # Único punto de conversión Beanie -> DTO, reutilizado por get_by_id/get_all/update
+    # en vez de repetir la construcción en cada método (DRY).
     def _to_dto(self, doc: ExtractedDocument) -> DocumentDTO:
         return DocumentDTO(id=str(doc.id), text=doc.text, checksum=doc.checksum)
 

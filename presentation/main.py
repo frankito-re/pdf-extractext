@@ -15,6 +15,8 @@ from data.models import ExtractedDocument
 from data.repositories import MongoChecksumRepository
 
 
+# Solo los campos actualizables que pide la consigna (text/checksum), sin exponer
+# campos especulativos que ningún caso de uso necesita todavía (YAGNI).
 class UpdateDocumentRequest(BaseModel):
     text: Optional[str] = None
     checksum: Optional[str] = None
@@ -42,6 +44,9 @@ app = FastAPI(
 )
 
 
+# Los endpoints declaran su dependencia como el Protocol (DocumentRepository),
+# no como BeanieDocumentRepository: la implementación concreta se resuelve acá,
+# en el único punto de wiring (SOLID: DIP).
 async def get_document_repo() -> DocumentRepository:
     from data.repository import BeanieDocumentRepository
     return BeanieDocumentRepository()
@@ -51,6 +56,8 @@ def get_checksum_repo() -> MongoChecksumRepository:
     return MongoChecksumRepository()
 
 
+# Evita repetir la construcción del dict de respuesta en los 4 endpoints de
+# documentos (DRY).
 def _doc_to_response(doc: DocumentDTO) -> dict:
     return {"id": doc.id, "text": doc.text, "checksum": doc.checksum}
 
