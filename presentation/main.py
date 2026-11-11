@@ -6,11 +6,12 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, model_validator
 
 from application.document_service import DocumentDTO, DocumentRepository, get_document, get_all_documents, update_document, delete_document
-from application.checksum import ChecksumRepository, calculate_checksum, save_document_if_unique
+from application.checksum import ChecksumRepository, calculate_checksum, save_document_if_unique #Se importa el puerto de checksum
 from application.exceptions import DuplicateDocumentError
 
 from application.pdf_extractor import extract_text_from_bytes
-from presentation.container import get_checksum_repo, get_document_repo, init_database
+from data.connection import get_database_connection
+from data.models import ExtractedDocument
 
 
 # Solo los campos actualizables que pide la consigna (text/checksum), sin exponer
@@ -30,8 +31,7 @@ class UpdateDocumentRequest(BaseModel):
 async def lifespan(app: FastAPI):
     # Debe completarse antes de que la app empiece a servir: los modelos de Beanie
     # no se pueden usar en queries hasta que init_beanie() corra contra una conexión activa.
-    # La inicialización concreta (Beanie/Mongo) vive en el container, no acá.
-    await init_database()
+    await get_database_connection([ExtractedDocument])
     yield
 
 
@@ -43,8 +43,17 @@ app = FastAPI(
 )
 
 
-# Los providers de repositorios se importan de presentation.container (el único
-# punto de wiring): los endpoints dependen de los Protocol, no de Beanie/Mongo.
+# Los endpoints declaran su dependencia como el Protocol (DocumentRepository),
+# no como BeanieDocumentRepository: la implementación concreta se resuelve acá,
+# en el único punto de wiring (SOLID: DIP).
+async def get_document_repo() -> DocumentRepository:
+    from data.repository import BeanieDocumentRepository
+    return BeanieDocumentRepository()
+
+
+async def get_checksum_repo() -> ChecksumRepository:
+    from data.repositories import MongoChecksumRepository
+    return MongoChecksumRepository()
 
 
 # Evita repetir la construcción del dict de respuesta en los 4 endpoints de
