@@ -1,10 +1,12 @@
 import typing
+from pathlib import Path
 from typing import Optional
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+import presentation.main as main_module
 from application.checksum import ChecksumRepository
 from application.document_service import DocumentDTO
 from presentation.main import app, extract_text, get_checksum_repo, get_document_repo
@@ -27,7 +29,7 @@ class BaseMockRepo:
 
 @pytest.mark.asyncio
 async def test_ping_server():
-    with patch("presentation.main.get_database_connection", new_callable=AsyncMock):
+    with patch("presentation.container.get_database_connection", new_callable=AsyncMock):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             response = await ac.get("/health")
 
@@ -229,3 +231,17 @@ async def test_extract_returns_409_for_duplicate():
     assert response.status_code == 409
 
     app.dependency_overrides.clear()
+
+
+def test_main_has_no_infrastructure_imports():
+    source = Path(main_module.__file__).read_text(encoding="utf-8")
+    assert "from data" not in source
+    assert "import data" not in source
+
+
+def test_container_owns_repository_providers():
+    from presentation import container
+
+    assert container.get_document_repo is get_document_repo
+    assert container.get_checksum_repo is get_checksum_repo
+    assert callable(container.init_database)

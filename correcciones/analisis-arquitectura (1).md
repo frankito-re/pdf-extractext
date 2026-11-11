@@ -180,12 +180,14 @@ El sistema usa una **arquitectura limpia de 3 capas que combina Clean Architectu
 - **Hexagonal** por el mecanismo explícito de *puertos* (`Protocol`) y *adaptadores* (repositorios Beanie) con inyección por constructor.
 - **No es N-capas** tradicional, pese a la nomenclatura de carpetas.
 
-La única debilidad estructural relevante es la **ausencia de una capa de dominio con entidades ricas** (el dominio es anémico) y la **fuga puntual de DIP en `/extract`**. Ambas son corregibles sin rediseñar.
+La **fuga puntual de DIP en `/extract`** ya fue corregida (commit `d86df1b`): el endpoint y su provider dependen del puerto `ChecksumRepository`, no de la clase concreta. La única debilidad estructural relevante que queda es la **ausencia de una capa de dominio con entidades ricas** (el dominio es anémico), corregible sin rediseñar cuando la complejidad lo justifique.
 
 ---
 
 ## 9. Recomendaciones
 
-1. **Corregir la fuga de DIP en `/extract`**: tipar como `ChecksumRepository` (el puerto ya existe) para que el adaptador *driving* no conozca la infraestructura.
-2. **Explicitar un `bootstrap`/`container`** para el *wiring* de `main.py` y dejar los controladores libres de imports de `data` (más fiel a Hexagonal/Clean).
-3. **Evaluar enriquecer el dominio**: mover invariantes (p. ej. checksum no vacío, longitud) a entidades de dominio en `application/` si la complejidad crece en la etapa de microservicios.
+| # | Recomendación | Estado |
+|---|---|---|
+| 1 | **Corregir la fuga de DIP en `/extract`**: tipar como `ChecksumRepository` (el puerto ya existe) para que el adaptador *driving* no conozca la infraestructura. | ✅ Hecho (`d86df1b`) |
+| 2 | **Explicitar un `bootstrap`/`container`** para el *wiring* de `main.py` y dejar los controladores libres de imports de `data` (más fiel a Hexagonal/Clean). | ⏳ En curso (B1) |
+| 3 | **Evaluar enriquecer el dominio**: mover invariantes (p. ej. checksum no vacío, longitud) a entidades de dominio en `application/` si la complejidad crece en la etapa de microservicios. | ⏸️ Diferido (YAGNI) |
