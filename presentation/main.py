@@ -6,13 +6,12 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, model_validator
 
 from application.document_service import DocumentDTO, DocumentRepository, get_document, get_all_documents, update_document, delete_document
-from application.checksum import calculate_checksum, save_document_if_unique
+from application.checksum import ChecksumRepository, calculate_checksum, save_document_if_unique #Se importa el puerto de checksum
 from application.exceptions import DuplicateDocumentError
 
 from application.pdf_extractor import extract_text_from_bytes
 from data.connection import get_database_connection
 from data.models import ExtractedDocument
-from data.repositories import MongoChecksumRepository
 
 
 # Solo los campos actualizables que pide la consigna (text/checksum), sin exponer
@@ -52,7 +51,8 @@ async def get_document_repo() -> DocumentRepository:
     return BeanieDocumentRepository()
 
 
-def get_checksum_repo() -> MongoChecksumRepository:
+async def get_checksum_repo() -> ChecksumRepository:
+    from data.repositories import MongoChecksumRepository
     return MongoChecksumRepository()
 
 
@@ -76,7 +76,7 @@ async def health_check():
 @app.post("/extract")
 async def extract_text(
     file: UploadFile = File(...),
-    repository: MongoChecksumRepository = Depends(get_checksum_repo),
+    repository: ChecksumRepository = Depends(get_checksum_repo),
 ):
     """Extract text from an uploaded PDF and persist it if its checksum is not already stored.
 
