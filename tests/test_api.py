@@ -1,11 +1,14 @@
+import typing
 from typing import Optional
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from application.checksum import ChecksumRepository
 from application.document_service import DocumentDTO
-from presentation.main import app, get_document_repo
+from presentation.main import app, extract_text, get_checksum_repo, get_document_repo
+from tests.test_pdf_extractor import make_pdf_bytes
 
 
 class BaseMockRepo:
@@ -170,5 +173,59 @@ async def test_get_deleted_document_returns_404():
     assert delete_response.status_code == 204
     assert get_response.status_code == 404
     assert get_response.json() == {"detail": "Document not found"}
+
+    app.dependency_overrides.clear()
+
+
+def test_extract_depends_on_checksum_port():
+    assert typing.get_type_hints(extract_text)["repository"] is ChecksumRepository
+    assert typing.get_type_hints(get_checksum_repo)["return"] is ChecksumRepository
+
+
+@pytest.mark.asyncio
+async def test_extract_persists_document_using_checksum_port():
+    saved = []
+
+    class FakeChecksumRepo:
+        async def exists(self, checksum: str) -> bool:
+            return False
+
+        async def save(self, text: str, checksum: str) -> None:
+            saved.append((text, checksum))
+
+    app.dependency_overrides[get_checksum_repo] = lambda: FakeChecksumRepo()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/extract",
+            files={"file": ("document.pdf", make_pdf_bytes("Contenido"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "Contenido" in body["text"]
+    assert saved == [(body["text"], body["checksum"])]
+
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_extract_returns_409_for_duplicate():
+    class DuplicateChecksumRepo:
+        async def exists(self, checksum: str) -> bool:
+            return True
+
+        async def save(self, text: str, checksum: str) -> None:
+            raise AssertionError("save must not be called for a duplicate")
+
+    app.dependency_overrides[get_checksum_repo] = lambda: DuplicateChecksumRepo()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/extract",
+            files={"file": ("document.pdf", make_pdf_bytes("Duplicado"), "application/pdf")},
+        )
+
+    assert response.status_code == 409
 
     app.dependency_overrides.clear()
